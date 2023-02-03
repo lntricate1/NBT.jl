@@ -3,6 +3,9 @@ uuid = "b6fc1ac1-9d30-4df3-aa0b-dd666eb91533"
 authors = ["Ellie <intricatebread@gmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+GZip = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
+
 [compat]
 julia = "1.8"
 
