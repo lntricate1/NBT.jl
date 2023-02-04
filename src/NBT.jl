@@ -127,4 +127,39 @@ function _write_tag(tag::Tag, stream::IO; skipname::Bool=false)
   end
 end
 
+function Base.show(io::IO, tag::Tag)
+  _show(io, tag)
+end
+
+function _show(io::IO, tag::Tag; indent::String="")
+  print(io, indent *
+    ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[tag.id] *
+    (tag.name == "" ? "(unnamed)" : tag.name) * ":")
+
+  if tag.id < 0x7 || tag.id == 0x8
+    println(io, " " * string(tag.data))
+
+  else
+    print(io, "\n")
+    if tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc
+      for i ∈ eachindex(tag.data)
+        println(io, indent * "▏ " * string(tag.data[i]))
+        if i > 10
+          println(io, indent * "▏ ...")
+          break
+        end
+      end
+
+    elseif tag.id == 0x9 || tag.id == 0xa
+      for i ∈ eachindex(tag.data)
+        _show(io, tag.data[i]; indent=indent * "▏ ")
+        if i > 10
+          println(io, indent * "▏ ...")
+          break
+        end
+      end
+    end
+  end
+end
+
 end
