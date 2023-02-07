@@ -32,6 +32,17 @@ Tag[] (unnamed):
 ▏ ▏ Float64 BorderWarningBlocks: 5.0
 ▏ ▏ ...
 
+julia> get_tags_by_name(t, "Time")
+1-element Vector{Tag}:
+ Int64 Time: 1155557106
+
+julia> get_tags_by_id(t, 2)
+5-element Vector{Tag}:
+ Int16 SleepTimer: 0
+ Int16 DeathTime: 0
+ Int16 Air: 300
+ Int16 Fire: 0
+ Int16 HurtTime: 0
 
 julia> write_nbt("./nbtfile.dat", t)
 GZipStream(./nbtfile.dat (closed))
