@@ -1,6 +1,9 @@
-using NBT
-using GZip: open
 using Test
+using NBT
+using Aqua
+using GZip: open
+
+Aqua.test_all(NBT)
 
 @testset "NBT.jl" begin
   @test hash(string(read_nbt("./xd.litematic"))) == 0xada1766e6013d8c5
