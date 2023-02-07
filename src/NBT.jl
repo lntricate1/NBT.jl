@@ -1,7 +1,10 @@
 module NBT
 
 using GZip: open
-export Tag, read_nbt, read_nbt_uncompressed, write_nbt, write_nbt_uncompressed
+export Tag
+export read_nbt, read_nbt_uncompressed
+export write_nbt, write_nbt_uncompressed
+export get_tags_by_name, get_tags_by_id
 
 struct Tag{T}
   id::UInt8
@@ -13,6 +16,8 @@ end
     read_nbt(filename::String)
 
 Parses an NBT file into a tree of nested `Tag` objects, each of which contains `(id, name, data)`.
+
+See also [`write_nbt`](@ref), [`read_nbt_uncompressed`](@ref).
 """
 function read_nbt(filename::String)::Tag
   read_nbt_uncompressed(open(filename))
@@ -31,6 +36,8 @@ end
     write_nbt(filename::String)
 
 Parses a tree of nested `Tag` objects, each of which contains `(id, name, data)`, into an NBT file.
+
+See also [`read_nbt`](@ref), [`write_nbt_uncompressed`](@ref).
 """
 function write_nbt(filename::String, tag::Tag)::IO
   touch(filename)
@@ -100,25 +107,25 @@ function _write_tag(tag::Tag, stream::IO; skipname::Bool=false)
     for c ∈ tag.name write(stream, c) end
   end
 
-  if tag.id < 0x7
+  if tag.id < 0x7 # Singletons
     write(stream, hton(tag.data))
 
-  elseif tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc
+  elseif tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc # Arrays
     write(stream, hton(Int32(length(tag.data))))
     for n ∈ tag.data write(stream, hton(n)) end
 
-  elseif tag.id == 0x8
+  elseif tag.id == 0x8 # String
     write(stream, hton(UInt16(length(tag.data))))
     for c ∈ tag.data write(stream, c) end
 
-  elseif tag.id == 0x9
+  elseif tag.id == 0x9 # Tag list
     write(stream, length(tag.data) > 0x0 ? first(tag.data).id : 0x0)
     write(stream, hton(Int32(length(tag.data))))
     for t ∈ tag.data
       _write_tag(t, stream; skipname = true)
     end
 
-  elseif tag.id == 0xa
+  elseif tag.id == 0xa # Compound
     for t ∈ tag.data
       _write_tag(t, stream)
     end
@@ -134,34 +141,78 @@ function Base.show(io::IO, tag::Tag)
 end
 
 function _show(io::IO, tag::Tag; indent::String="")
-  print(io, indent *
-    ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[tag.id] *
-    (tag.name == "" ? "(unnamed)" : tag.name) * ":")
+  print(io, indent,
+    ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[tag.id],
+    (tag.name == "" ? "(unnamed)" : tag.name), ":")
 
   if tag.id < 0x7 || tag.id == 0x8
-    println(io, " " * string(tag.data))
+    print(io, " ", string(tag.data))
 
   else
-    print(io, "\n")
     if tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc
       for i ∈ eachindex(tag.data)
-        println(io, indent * "▏ " * string(tag.data[i]))
+        print(io, "\n", indent, "▏ ", string(tag.data[i]))
         if i > 10
-          println(io, indent * "▏ ...")
+          print(io, "\n", indent, "▏ ...")
           break
         end
       end
 
     elseif tag.id == 0x9 || tag.id == 0xa
       for i ∈ eachindex(tag.data)
+        println(io)
         _show(io, tag.data[i]; indent=indent * "▏ ")
         if i > 10
-          println(io, indent * "▏ ...")
+          print(io, "\n", indent, "▏ ...")
           break
         end
       end
     end
   end
+end
+
+"""
+    get_tags_by_name(tag, name; depth=10)
+
+Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an optional search depth limit.
+
+See also [`get_tags_by_id`](@ref)
+"""
+function get_tags_by_name(tag::Tag, name::String; depth::Int=10)
+  tags = Tag[]
+  if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
+    for t::Tag ∈ tag.data
+      tags = vcat(tags, get_tags_by_name(t, name; depth=depth-1))
+    end
+  end
+
+  if tag.name == name
+    push!(tags, tag)
+  end
+
+  return tags
+end
+
+"""
+    get_tags_by_id(tag, name; depth=10)
+
+Returns a `Vector{Tag}` containing all `Tag`s in `tag` with id `id`, with an optional search depth limit.
+
+See also [`get_tags_by_name`](@ref)
+"""
+function get_tags_by_id(tag::Tag, id::Integer; depth::Int=10)
+  tags = Tag[]
+  if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
+    for t::Tag ∈ tag.data
+      tags = vcat(tags, get_tags_by_id(t, id; depth=depth-1))
+    end
+  end
+
+  if tag.id == id
+    push!(tags, tag)
+  end
+
+  return tags
 end
 
 end
