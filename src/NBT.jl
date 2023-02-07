@@ -12,7 +12,7 @@ end
 """
     read_nbt(filename::String)
 
-Parses an NBT file into a tree of nested `Tag` objects, each of which contains a `name` and `data`.
+Parses an NBT file into a tree of nested `Tag` objects, each of which contains `(id, name, data)`.
 """
 function read_nbt(filename::String)::Tag
   read_nbt_uncompressed(open(filename))
@@ -21,7 +21,7 @@ end
 """
     read_nbt_uncompressed(io::io)
 
-Parses an uncompressed NBT file into a tree of nested `Tag` objects, each of which contains a `name` and `data`.
+Parses an uncompressed NBT file into a tree of nested `Tag` objects, each of which contains `(id, name, data)`.
 """
 function read_nbt_uncompressed(stream::IO)::Tag
   _read_tag(read(stream, UInt8), stream)
@@ -30,18 +30,20 @@ end
 """
     write_nbt(filename::String)
 
-Parses a tree of nested `Tag` objects, each of which contains a `name` and `data`, into an NBT file.
+Parses a tree of nested `Tag` objects, each of which contains `(id, name, data)`, into an NBT file.
 """
 function write_nbt(filename::String, tag::Tag)::IO
-  stream = open(filename)
+  touch(filename)
+  stream = open(filename, "w")
   _write_tag(tag, stream)
+  close(stream)
   return stream
 end
 
 """
     write_nbt_uncompressed(io::io)
 
-Parses a tree of nested `Tag` objects, each of which contains a `name` and `data`, into an uncompressed NBT file.
+Parses a tree of nested `Tag` objects, each of which contains `(id, name, data)`, into an uncompressed NBT file.
 """
 function write_nbt_uncompressed(tag::Tag)::IO
   stream = IOBuffer();
