@@ -4,13 +4,17 @@ using GZip: open
 export Tag
 export read_nbt, read_nbt_uncompressed
 export write_nbt, write_nbt_uncompressed
-export get_tags_by_name, get_tags_by_id
+export get_tags, set_tags
 
 struct Tag{T}
   id::UInt8
   name::String
   data::T
 end
+
+Base.isequal(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
+Base.:(==)(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
+Base.hash(x::Tag, h::UInt) = hash(x.id, hash(x.name, hash(x.data, hash(:Tag, h))))
 
 """
     read_nbt(filename::String)
@@ -141,7 +145,7 @@ function Base.show(io::IO, tag::Tag)
 end
 
 function _show(io::IO, tag::Tag; indent::String="")
-  print(io, indent,
+  print(io, indent, "(", tag.id, ") ",
     ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[tag.id],
     (tag.name == "" ? "(unnamed)" : tag.name), ":")
 
@@ -172,17 +176,26 @@ function _show(io::IO, tag::Tag; indent::String="")
 end
 
 """
-    get_tags_by_name(tag, name; depth=10)
+    get_tags(tag, name::String; depth=10)
 
 Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an optional search depth limit.
 
-See also [`get_tags_by_id`](@ref)
+For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
+
+```jldoctest
+julia> tag = read_nbt("./test/xd.litematic");
+
+julia> tag["Version"] === get_tags(tag, "Version"; depth=1)[1]
+true
+```
+
+See also [`get_tags`](@ref)
 """
-function get_tags_by_name(tag::Tag, name::String; depth::Int=10)
+function get_tags(tag::Tag, name::String; depth::Int=10)
   tags = Tag[]
   if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
     for t::Tag ∈ tag.data
-      tags = vcat(tags, get_tags_by_name(t, name; depth=depth-1))
+      tags = vcat(tags, get_tags(t, name; depth=depth-1))
     end
   end
 
@@ -194,17 +207,69 @@ function get_tags_by_name(tag::Tag, name::String; depth::Int=10)
 end
 
 """
-    get_tags_by_id(tag, name; depth=10)
+    set_tags(tag, name::String, newtag; depth=10)
+
+Sets all `Tag`s in `tag` named `name` to `newtag`, with an optional search depth limit.
+
+For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
+
+```jldoctest
+julia> tag = read_nbt("./test/xd.litematic");
+
+julia> tag["Version"] = Tag(0x3, "Version", 69420)
+Int32 Version: 69420
+```
+
+See also [`get_tags`](@ref)
+"""
+function set_tags(tag::Tag, name::String, newtag::Tag; depth::Int=10)
+  if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
+    for i ∈ eachindex(tag.data)
+      tag.data[i] = set_tags(tag.data[i], name, newtag; depth=depth-1)
+    end
+  end
+
+  if tag.name == name
+    return newtag
+  end
+
+  return tag
+end
+
+function Base.getindex(tag::Tag, name::String)
+  for t::Tag ∈ tag.data
+    if t.name == name return t end
+  end
+end
+
+function Base.setindex!(tag::Tag, newtag::Tag, name::String)
+  for i ∈ eachindex(tag.data)
+    if tag.data[i].name == name return tag.data[i] = newtag end
+  end
+  return newtag
+end
+
+"""
+    get_tags(tag, id::Integer; depth=10)
 
 Returns a `Vector{Tag}` containing all `Tag`s in `tag` with id `id`, with an optional search depth limit.
 
-See also [`get_tags_by_name`](@ref)
+For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
+
+```jldoctest
+julia> tag = read_nbt("./test/xd.litematic");
+
+julia> tag[0x3] === get_tags(tag, 0x3; depth=1)[1]
+true
+```
+
+See also [`get_tags`](@ref)
 """
-function get_tags_by_id(tag::Tag, id::Integer; depth::Int=10)
+function get_tags(tag::Tag, id::Integer; depth::Int=10)
   tags = Tag[]
   if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
     for t::Tag ∈ tag.data
-      tags = vcat(tags, get_tags_by_id(t, id; depth=depth-1))
+      tags = vcat(tags, get_tags(t, id; depth=depth-1))
     end
   end
 
@@ -213,6 +278,49 @@ function get_tags_by_id(tag::Tag, id::Integer; depth::Int=10)
   end
 
   return tags
+end
+
+"""
+    set_tags(tag, id::Integer, newtag; depth=10)
+
+Sets all `Tag`s in `tag` with id `id` to `newtag`, with an optional search depth limit.
+
+For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
+
+```jldoctest
+julia> tag = read_nbt("./test/xd.litematic");
+
+julia> tag[0x3] = Tag(0x3, "EEEE", 69420)
+Int32 EEEE: 69420
+```
+
+See also [`get_tags`](@ref)
+"""
+function set_tags(tag::Tag, id::Integer, newtag::Tag; depth::Int=10)
+  if depth > 0 && (tag.id == 0x9 || tag.id == 0xa)
+    for i ∈ eachindex(tag.data)
+      tag.data[i] = set_tags(tag.data[i], id, newtag; depth=depth-1)
+    end
+  end
+
+  if tag.id == id
+    return newtag
+  end
+
+  return tag
+end
+
+function Base.getindex(tag::Tag, id::Integer)
+  for t::Tag ∈ tag.data
+    if t.id == id return t end
+  end
+end
+
+function Base.setindex!(tag::Tag, newtag::Tag, id::Integer)
+  for i ∈ eachindex(tag.data)
+    if tag.data[i].id == id return tag.data[i] = newtag end
+  end
+  return newtag
 end
 
 end
