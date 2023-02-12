@@ -6,6 +6,22 @@ export read_nbt, read_nbt_uncompressed
 export write_nbt, write_nbt_uncompressed
 export get_tags, set_tags
 
+"""
+    struct Tag{T}
+
+Represents an NBT tag, containing an id, a name, and data.
+
+The following are all values of `T`, ordered by `id`, starting from 0x1, and their corresponding names on the wiki:
+
+`[UInt8, Int16, Int32, Int64, Float32, Float64, UInt8[],    String, Tag[], Tag[],    Int32[],   Int64[]   ]`
+
+`[Byte,  Short, Int,   Long,  Float,   Double,  Byte_Array, String, List,  Compound, Int_Array, Long_Array]`
+
+# Properties
+- `id::UInt8`: The id of the tag. See [minecraft wiki](https://minecraft.fandom.com/wiki/NBT_format).
+- `name::String`: The name of the tag.
+- `data::T`: The data in the tag. Its type is dictated by `id`. Do not use the wrong id-T combination or everything will break!
+"""
 struct Tag{T}
   id::UInt8
   name::String
@@ -140,8 +156,14 @@ function _write_tag(tag::Tag, stream::IO; skipname::Bool=false)
   end
 end
 
-function Base.show(io::IO, tag::Tag)
+function Base.show(io::IO, ::MIME"text/plain", tag::Tag)
   _show(io, tag)
+end
+
+function Base.show(io::IO, tag::Tag)
+  print(io, "Tag{",
+    ("Byte", "Int16", "Int32", "Int64", "Float32", "Float64", "Byte[]", "String", "Tag[]", "Tag[]", "Int32[]", "Int64[]")[tag.id],
+    "} \"", tag.name, '"')
 end
 
 function _show(io::IO, tag::Tag; indent::String="")
