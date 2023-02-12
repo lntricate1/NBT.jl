@@ -15,36 +15,35 @@ TODO:
 ```julia
 julia> using NBT
 
-julia> t = read_nbt("~/1.16.5/saves/cmp3/level.dat")
-Tag[] (unnamed):
-▏ Tag[] Data:
-▏ ▏ Int32 WanderingTraderSpawnChance: 75
-▏ ▏ Float64 BorderCenterZ: 0.0
-▏ ▏ Byte Difficulty: 3
-▏ ▏ Int64 BorderSizeLerpTime: 0
-▏ ▏ Byte raining: 0
-▏ ▏ Int64 Time: 1155557106
-▏ ▏ Int32 GameType: 1
-▏ ▏ Tag[] ServerBrands:
-▏ ▏ ▏ String (unnamed): fabric
-▏ ▏ Float64 BorderCenterX: 0.0
-▏ ▏ Float64 BorderDamagePerBlock: 26.0
-▏ ▏ Float64 BorderWarningBlocks: 5.0
+julia> t = read_nbt("~/1.16.5/saves/cmp3/level.dat") # Read tags from NBT files
+(10) Tag[] (unnamed):
+▏ (10) Tag[] Data:
+▏ ▏ (3) Int32 WanderingTraderSpawnChance: 75
+▏ ▏ (6) Float64 BorderCenterZ: 0.0
+▏ ▏ (1) Byte Difficulty: 3
+▏ ▏ (4) Int64 BorderSizeLerpTime: 0
+▏ ▏ (1) Byte raining: 0
+▏ ▏ (4) Int64 Time: 1155557106
+▏ ▏ (3) Int32 GameType: 1
+▏ ▏ (9) Tag[] ServerBrands:
+▏ ▏ ▏ (8) String (unnamed): fabric
+▏ ▏ (6) Float64 BorderCenterX: 0.0
+▏ ▏ (6) Float64 BorderDamagePerBlock: 26.0
+▏ ▏ (6) Float64 BorderWarningBlocks: 5.0
 ▏ ▏ ...
 
-julia> get_tags_by_name(t, "Time")
-1-element Vector{Tag}:
- Int64 Time: 1155557106
+julia> t["Data"]["Time"] # Get the tag root/Data/Time
+(4) Int64 Time: 1155557106
 
-julia> get_tags_by_id(t, 2)
+julia> get_tags(t, 2) # Get all tags with id 2 (Int16)
 5-element Vector{Tag}:
- Int16 SleepTimer: 0
- Int16 DeathTime: 0
- Int16 Air: 300
- Int16 Fire: 0
- Int16 HurtTime: 0
+ (2) Int16 SleepTimer: 0
+ (2) Int16 DeathTime: 0
+ (2) Int16 Air: 300
+ (2) Int16 Fire: 0
+ (2) Int16 HurtTime: 0
 
-julia> write_nbt("./nbtfile.dat", t)
+julia> write_nbt("./nbtfile.dat", t) # Write tags into NBT files
 GZipStream(./nbtfile.dat (closed))
 ```
 
