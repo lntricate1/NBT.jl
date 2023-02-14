@@ -97,7 +97,7 @@ function _read_tag(io::IO, id::UInt8; skipname::Bool=false)::Tag
 end
 
 # Only needed while https://github.com/JuliaIO/GZip.jl/issues/93 is open
-function write_fixed(io::IO, b...)
+function _write_fixed(io::IO, b...)
   write(io, b...)
   return sum(sizeof.(b))
 end
@@ -106,22 +106,22 @@ function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
   bytes_written = 0
   if !skipname
     namelength = hton(Int16(sizeof(tag.name)))
-    bytes_written += write_fixed(io, tag.id, namelength, tag.name)
+    bytes_written += _write_fixed(io, tag.id, namelength, tag.name)
   end
 
   if tag.id < 0x7 # Singletons
-    bytes_written += write_fixed(io, hton(tag.data))
+    bytes_written += _write_fixed(io, hton(tag.data))
 
   elseif tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc # Arrays
     bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
-    bytes_written += write_fixed(io, hton.(tag.data))
+    bytes_written += _write_fixed(io, hton.(tag.data))
 
   elseif tag.id == 0x8 # String
     bytes_written += write(io, hton(UInt16(sizeof(tag.data)))) # Length
     bytes_written += write(io, tag.data)
 
   elseif tag.id == 0x9 # Tag list
-    bytes_written += write_fixed(io, length(tag.data) > 0x0 ? first(tag.data).id : 0x0) # Type
+    bytes_written += _write_fixed(io, length(tag.data) > 0x0 ? first(tag.data).id : 0x0) # Type
     bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
     for t ∈ tag.data
       bytes_written += _write_tag(io, t; skipname = true)
@@ -131,7 +131,7 @@ function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
     for t ∈ tag.data
       bytes_written += _write_tag(io, t)
     end
-    bytes_written += write_fixed(io, 0x0)
+    bytes_written += _write_fixed(io, 0x0)
 
   else
     throw(error("invalid tag id ($(tag.id)); tags may be corrupt"))
