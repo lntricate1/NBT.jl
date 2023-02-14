@@ -1,9 +1,8 @@
 module NBT
 
-using GZip: open
+using GZip: GZipStream, open
 export Tag
-export read_nbt, read_nbt_uncompressed
-export write_nbt, write_nbt_uncompressed
+export read_nbt, write_nbt
 export get_tags, set_tags
 
 """
@@ -33,86 +32,63 @@ Base.:(==)(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.dat
 Base.hash(x::Tag, h::UInt) = hash(x.id, hash(x.name, hash(x.data, hash(:Tag, h))))
 
 """
-    read_nbt(filename::String)
+    read_nbt(filename)
 
-Parses an NBT file into a tree of nested `Tag` objects, each of which contains `(id, name, data)`.
+Parses an NBT file into a NBT.Tag object. Shorthand for `GZip.open(io -> read(io, Tag), filename)`
 
-See also [`write_nbt`](@ref), [`read_nbt_uncompressed`](@ref).
+See also [`write_nbt`](@ref).
 """
 function read_nbt(filename::String)::Tag
-  read_nbt_uncompressed(open(filename))
+  return open(io -> read(io, Tag), filename)
 end
 
-"""
-    read_nbt_uncompressed(io::io)
-
-Parses an uncompressed NBT file into a tree of nested `Tag` objects, each of which contains `(id, name, data)`.
-"""
-function read_nbt_uncompressed(stream::IO)::Tag
-  _read_tag(read(stream, UInt8), stream)
-end
+Base.read(io::IO, ::Type{Tag}) = _read_tag(io, read(io, UInt8))
 
 """
-    write_nbt(filename::String)
+    write_nbt(filename, tag)
 
-Parses a tree of nested `Tag` objects, each of which contains `(id, name, data)`, into an NBT file.
+Writes a NBT.Tag object into an NBT file. Shorthand for `GZip.open(io -> write(io, tag), filename, "w")`
 
-See also [`read_nbt`](@ref), [`write_nbt_uncompressed`](@ref).
+See also [`read_nbt`](@ref).
 """
-function write_nbt(filename::String, tag::Tag)::IO
+function write_nbt(filename::String, tag::Tag)::Int
   touch(filename)
-  stream = open(filename, "w")
-  _write_tag(tag, stream)
-  close(stream)
-  return stream
+  return open(io -> write(io, tag), filename, "w")
 end
 
-"""
-    write_nbt_uncompressed(io::io)
+Base.write(io::IO, tag::Tag) = _write_tag(io, tag)
 
-Parses a tree of nested `Tag` objects, each of which contains `(id, name, data)`, into an uncompressed NBT file.
-"""
-function write_nbt_uncompressed(tag::Tag)::IO
-  stream = IOBuffer();
-  _write_tag(tag, stream)
-  return stream
-end
-
-function _read_tag(id::UInt8, stream::IO; skipname::Bool=false)::Tag
+function _read_tag(io::IO, id::UInt8; skipname::Bool=false)::Tag
   types = (Int8, Int16, Int32, Int64, Float32, Float64, Int8, nothing, nothing, nothing, Int32, Int64)
   name = ""
   if !skipname
-    namelength = ntoh(read(stream, UInt16))
-    for _ ∈ 1:namelength
-      name *= read(stream, Char)
-    end
+    namelength = ntoh(read(io, UInt16))
+    name = String(read(io, namelength))
   end
 
   if id < 0x7 # Singletons
-    return Tag(id, name, ntoh(read(stream, types[id])))
+    return Tag(id, name, ntoh(read(io, types[id])))
 
   elseif id == 0x7 || id == 0xb || id == 0xc # Arrays
-    size = ntoh(read(stream, Int32))
-    return Tag(id, name, types[id][ntoh(read(stream, types[id])) for _ ∈ 1:size])
+    size = ntoh(read(io, Int32))
+    return Tag(id, name, [ntoh(read(io, types[id])) for _ ∈ 1:size])
 
   elseif id == 0x8 # String
-    size = ntoh(read(stream, UInt16))
-    string = ""
-    for _ ∈ 1:size string *= read(stream, Char) end
-    return Tag(id, name, string)
+    size = ntoh(read(io, UInt16))
+    return Tag(id, name, String(read(io, size)))
 
   elseif id == 0x9 # Tag list
-    contentsid = read(stream, UInt8)
-    size = ntoh(read(stream, Int32))
-    if contentsid == 0x0 return Tag(id, name, Tag[]) end
-    return Tag(id, name, Tag[_read_tag(contentsid, stream; skipname=true) for _ ∈ 1:size])
+    contentsid = read(io, UInt8)
+    size = ntoh(read(io, Int32))
+    if contentsid == 0x0 return Tag(0x9, name, Tag[]) end
+    return Tag(id, name, [_read_tag(io, contentsid; skipname=true) for _ ∈ 1:size])
 
   elseif id == 0xa # Compound
     tags = Tag[]
     while true
-      contentsid = read(stream, UInt8)
+      contentsid = read(io, UInt8)
       if contentsid == 0x0 break end
-      push!(tags, _read_tag(contentsid, stream))
+      push!(tags, _read_tag(io, contentsid))
     end
     return Tag(id, name, tags)
 
@@ -120,40 +96,48 @@ function _read_tag(id::UInt8, stream::IO; skipname::Bool=false)::Tag
   end
 end
 
-function _write_tag(tag::Tag, stream::IO; skipname::Bool=false)
+# Only needed while https://github.com/JuliaIO/GZip.jl/issues/93 is open
+function write_fixed(io::IO, b...)
+  write(io, b...)
+  return sum(sizeof.(b))
+end
+
+function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
+  bytes_written = 0
   if !skipname
-    write(stream, tag.id)
-    write(stream, hton(Int16(length(tag.name))))
-    for c ∈ tag.name write(stream, c) end
+    namelength = hton(Int16(length(tag.name)))
+    bytes_written += write_fixed(io, tag.id, namelength, tag.name)
   end
 
   if tag.id < 0x7 # Singletons
-    write(stream, hton(tag.data))
+    bytes_written += write_fixed(io, hton(tag.data))
 
   elseif tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc # Arrays
-    write(stream, hton(Int32(length(tag.data))))
-    for n ∈ tag.data write(stream, hton(n)) end
+    bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
+    bytes_written += write_fixed(io, hton.(tag.data))
 
   elseif tag.id == 0x8 # String
-    write(stream, hton(UInt16(length(tag.data))))
-    for c ∈ tag.data write(stream, c) end
+    bytes_written += write(io, hton(UInt16(length(tag.data)))) # Length
+    bytes_written += write(io, tag.data)
 
   elseif tag.id == 0x9 # Tag list
-    write(stream, length(tag.data) > 0x0 ? first(tag.data).id : 0x0)
-    write(stream, hton(Int32(length(tag.data))))
+    bytes_written += write_fixed(io, length(tag.data) > 0x0 ? first(tag.data).id : 0x0) # Type
+    bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
     for t ∈ tag.data
-      _write_tag(t, stream; skipname = true)
+      bytes_written += _write_tag(io, t; skipname = true)
     end
 
   elseif tag.id == 0xa # Compound
     for t ∈ tag.data
-      _write_tag(t, stream)
+      bytes_written += _write_tag(io, t)
     end
-    write(stream, 0x0)
+    bytes_written += write_fixed(io, 0x0)
 
   else
     throw(error("invalid tag id ($(tag.id)); tags may be corrupt"))
   end
+
+  return bytes_written
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tag::Tag)
