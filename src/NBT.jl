@@ -1,8 +1,7 @@
 module NBT
 
-using GZip: GZipStream, open
+using GZip: gzdopen
 export Tag
-export read_nbt, write_nbt
 export get_tags, set_tags
 
 """
@@ -31,32 +30,31 @@ Base.isequal(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.d
 Base.:(==)(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
 Base.hash(x::Tag, h::UInt) = hash(x.id, hash(x.name, hash(x.data, hash(:Tag, h))))
 
-"""
-    read_nbt(filename)
-
-Parses an NBT file into a NBT.Tag object. Shorthand for `GZip.open(io -> read(io, Tag), filename)`
-
-See also [`write_nbt`](@ref).
-"""
-function read_nbt(filename::String)::Tag
-  return open(io -> read(io, Tag), filename)
+function Base.read(io::IO, ::Type{Tag})
+  gzio = gzdopen(io)
+  return _read_tag(gzio, read(gzio, UInt8))
 end
 
-Base.read(io::IO, ::Type{Tag}) = _read_tag(io, read(io, UInt8))
-
 """
-    write_nbt(filename, tag)
+    read_nbt_uncompressed(io, ::Type{Tag})
 
-Writes a NBT.Tag object into an NBT file. Shorthand for `GZip.open(io -> write(io, tag), filename, "w")`
-
-See also [`read_nbt`](@ref).
+Reads an nbt tag from an uncompressed `IO`. Not exported.
 """
-function write_nbt(filename::String, tag::Tag)::Int
-  touch(filename)
-  return open(io -> write(io, tag), filename, "w")
+read_nbt_uncompressed(io::IO, ::Type{Tag}) = _read_tag(io, read(io, UInt8))
+
+function Base.write(io::IO, tag::Tag)
+  gzio = gzdopen(io, "w")
+  bytes = _write_tag(gzio, tag)
+  close(gzio)
+  return bytes
 end
 
-Base.write(io::IO, tag::Tag) = _write_tag(io, tag)
+"""
+    write_nbt_uncompressed(io, tag)
+
+Writes an nbt tag to an uncompressed `IO`. Not exported.
+"""
+write_nbt_uncompressed(io::IO, tag::Tag) = _write_tag(io, tag)
 
 function _read_tag(io::IO, id::UInt8; skipname::Bool=false)::Tag
   types = (Int8, Int16, Int32, Int64, Float32, Float64, Int8, nothing, nothing, nothing, Int32, Int64)
@@ -189,7 +187,7 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read_nbt("./test/xd.litematic");
+julia> tag = read("./test/xd.litematic", Tag);
 
 julia> tag["Version"] === get_tags(tag, "Version"; depth=1)[1]
 true
@@ -220,7 +218,7 @@ Sets all `Tag`s in `tag` named `name` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read_nbt("./test/xd.litematic");
+julia> tag = read("./test/xd.litematic", Tag);
 
 julia> tag["Version"] = Tag(0x3, "Version", 69420)
 Int32 Version: 69420
@@ -263,7 +261,7 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` with id `id`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read_nbt("./test/xd.litematic");
+julia> tag = read("./test/xd.litematic", Tag);
 
 julia> tag[0x3] === get_tags(tag, 0x3; depth=1)[1]
 true
@@ -294,7 +292,7 @@ Sets all `Tag`s in `tag` with id `id` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read_nbt("./test/xd.litematic");
+julia> tag = read("./test/xd.litematic", Tag);
 
 julia> tag[0x3] = Tag(0x3, "EEEE", 69420)
 Int32 EEEE: 69420
