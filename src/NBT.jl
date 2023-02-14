@@ -105,7 +105,7 @@ end
 function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
   bytes_written = 0
   if !skipname
-    namelength = hton(Int16(length(tag.name)))
+    namelength = hton(Int16(sizeof(tag.name)))
     bytes_written += write_fixed(io, tag.id, namelength, tag.name)
   end
 
@@ -117,7 +117,7 @@ function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
     bytes_written += write_fixed(io, hton.(tag.data))
 
   elseif tag.id == 0x8 # String
-    bytes_written += write(io, hton(UInt16(length(tag.data)))) # Length
+    bytes_written += write(io, hton(UInt16(sizeof(tag.data)))) # Length
     bytes_written += write(io, tag.data)
 
   elseif tag.id == 0x9 # Tag list

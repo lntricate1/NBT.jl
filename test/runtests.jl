@@ -8,16 +8,19 @@ Aqua.test_all(NBT)
 @testset "NBT.jl" begin
   files = readdir("schematics")
 
-  @test begin
-    for i ∈ eachindex(files)
+  function test1()
+    for f ∈ files
       io = IOBuffer()
-      write(io, read_nbt("schematics/" * files[i]))
-      if take!(io) != GZip.open(read, "schematics/" * f)
+      write(io, read_nbt("schematics/" * f))
+      a = take!(io) != open(read, "schematics/" * f)
+      println(f, ", ", a)
+      if a
         return false
       end
     end
     return true
   end
+  @test test1()
 
   @test hash(read_nbt("schematics/xd.litematic")) == 0x0da2fb0dc1b40a7f
   @test hash(read_nbt("schematics/peepee alignment.litematic")) == 0x7323f76519897493
