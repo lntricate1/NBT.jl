@@ -1,0 +1,7 @@
+[litematics]
+git-tree-sha1 = "07d3a54fabe491a93c89fbce48f43668df334ccc"
+lazy = true
+
+  [[litematics.download]]
+  url = "https://github.com/lntricate1/nbt-testfiles/raw/master/litematics.tar.gz"
+  sha256 = "b09945e08559e95621faa40762f8374a12d377787da3a2121479ff2e548d9416"

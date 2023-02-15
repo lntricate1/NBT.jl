@@ -30,6 +30,10 @@ Base.isequal(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.d
 Base.:(==)(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
 Base.hash(x::Tag, h::UInt) = hash(x.id, hash(x.name, hash(x.data, hash(:Tag, h))))
 
+Base.sizeof(t::Tag) = 1 + sizeof(t.name) + sizeof(t.data)
+Base.sizeof(a::Array{Tag}) = length(a) == 0 ? 0 : sum(sizeof.(a))
+Base.sizeof(a::SubArray{Tag, <:Any, <:Array}) = length(a) == 0 ? 0 : sum(sizeof.(a))
+
 function Base.read(io::IO, ::Type{Tag})
   gzio = gzdopen(io)
   return _read_tag(gzio, read(gzio, UInt8))

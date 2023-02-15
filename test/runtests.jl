@@ -1,4 +1,5 @@
 using Test
+using LazyArtifacts
 using NBT
 using Aqua
 using GZip: open
@@ -6,9 +7,10 @@ using GZip: open
 Aqua.test_all(NBT)
 
 @testset "NBT.jl" begin
-  files = readdir("schematics"; join=true)
-  for f ∈ files
+  rootdir = artifact"litematics"
+  for f ∈ readdir(rootdir)
     println(f)
+    f = joinpath(rootdir, f)
     io = IOBuffer()
     tag = read(f, Tag)
     bytecount = NBT.write_nbt_uncompressed(io, tag)

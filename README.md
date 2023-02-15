@@ -6,10 +6,20 @@
 
 NBT.jl is a Julia package for reading and writing Minecraft .nbt files, including .litematic files.
 
-DONE: NBT reading, NBT writing, printing, get tag by id, get tag by name.
-
-TODO:
-  - Conversion to blockstate matrix: Decide if it should go here or in a different package.
+## Available Methods
+  - `Base.read(::IO, ::Type{Tag}) -> Tag`
+  - `Base.write(::IO, ::Tag) -> Int`
+  - `Base.isequal(::Tag, ::Tag) -> Bool`
+  - `Base.==(::Tag, ::Tag) -> Bool`
+  - `Base.hash(::Tag, ::UInt) -> UInt`
+  - `Base.sizeof(::Tag) -> Int`
+  - `Base.show(::IO, ::MIME, ::Tag)`
+  - `Base.getindex(::Tag, ::String) -> Union{Tag, Nothing}`
+  - `Base.getindex(::Tag, ::Integer) -> Union{Tag, Nothing}`
+  - `Base.setindex(::Tag, ::Tag, ::String) -> ::Tag`
+  - `Base.setindex(::Tag, ::Tag, ::Integer) -> ::Tag`
+  - `read_nbt_uncompressed(::IO, ::Type{Tag}) -> Tag` (Not exported)
+  - `write_nbt_uncompressed(::IO, ::Tag) -> Int` (Not exported)
 
 ## Examples
 ```julia
