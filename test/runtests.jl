@@ -1,6 +1,6 @@
+using NBT
 using Test
 using LazyArtifacts
-using NBT
 using Aqua
 using GZip: open
 
