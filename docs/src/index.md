@@ -1,7 +1,14 @@
-# NBT.jl Documentation
+```@meta
+CurrentModule = NBT
+```
 
-```@docs
-read_nbt(filename::String)
+# NBT
 
-read_nbt_uncompressed(io::IO)
+Documentation for [NBT](https://github.com/lntricate1/NBT.jl).
+
+```@index
+```
+
+```@autodocs
+Modules = [NBT]
 ```

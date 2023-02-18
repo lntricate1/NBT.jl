@@ -1,8 +1,9 @@
 # NBT.jl
 
-| **Build Status**                        | **Quality**                     |
-|:---------------------------------------:|:-------------------------------:|
-| [![Build Status][build-img]][build-url] | [![Aqua QA][aqua-img]][aqua-url]|
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://lntricate1.github.io/NBT.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://lntricate1.github.io/NBT.jl/dev/)
+[![Build Status](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/lntricate1/NBT.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/lntricate1/NBT.jl)
 
 NBT.jl is a Julia package for reading and writing Minecraft .nbt files, including .litematic files.
 
