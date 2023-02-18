@@ -1,3 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 NBT = "b6fc1ac1-9d30-4df3-aa0b-dd666eb91533"

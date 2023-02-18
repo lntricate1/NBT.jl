@@ -191,7 +191,7 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("./test/xd.litematic", Tag);
+julia> tag = read("xd.litematic", Tag);
 
 julia> tag["Version"] === get_tags(tag, "Version"; depth=1)[1]
 true
@@ -222,7 +222,7 @@ Sets all `Tag`s in `tag` named `name` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("./test/xd.litematic", Tag);
+julia> tag = read("xd.litematic", Tag);
 
 julia> tag["Version"] = Tag(0x3, "Version", 69420)
 Int32 Version: 69420
@@ -265,7 +265,7 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` with id `id`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("./test/xd.litematic", Tag);
+julia> tag = read("xd.litematic", Tag);
 
 julia> tag[0x3] === get_tags(tag, 0x3; depth=1)[1]
 true
@@ -296,7 +296,7 @@ Sets all `Tag`s in `tag` with id `id` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("./test/xd.litematic", Tag);
+julia> tag = read("xd.litematic", Tag);
 
 julia> tag[0x3] = Tag(0x3, "EEEE", 69420)
 Int32 EEEE: 69420

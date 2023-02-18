@@ -57,5 +57,8 @@ jobs:
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
             using NBT
+            using LazyArtifacts
+            cp(joinpath(artifact"litematics", "xd.litematic"), "xd.litematic")
             DocMeta.setdocmeta!(NBT, :DocTestSetup, :(using NBT); recursive=true)
-            doctest(NBT)'
+            doctest(NBT)
+            rm("xd.litematic")'
