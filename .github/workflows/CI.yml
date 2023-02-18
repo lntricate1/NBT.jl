@@ -58,6 +58,7 @@ jobs:
             using Documenter: DocMeta, doctest
             using NBT
             using LazyArtifacts
+            cd("docs")
             cp(joinpath(artifact"litematics", "xd.litematic"), "xd.litematic")
             DocMeta.setdocmeta!(NBT, :DocTestSetup, :(using NBT); recursive=true)
             doctest(NBT)
