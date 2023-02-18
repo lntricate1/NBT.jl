@@ -56,6 +56,6 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using Litematica
-            DocMeta.setdocmeta!(Litematica, :DocTestSetup, :(using Litematica); recursive=true)
-            doctest(Litematica)'
+            using NBT
+            DocMeta.setdocmeta!(NBT, :DocTestSetup, :(using NBT); recursive=true)
+            doctest(NBT)'
