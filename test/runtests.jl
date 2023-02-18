@@ -9,8 +9,10 @@ Aqua.test_all(NBT)
 @testset "NBT.jl" begin
   rootdir = artifact"litematics"
   for f ∈ readdir(rootdir)
-    println(f)
+    print(f)
     f = joinpath(rootdir, f)
+    lasttime = time()
+
     io = IOBuffer()
     tag = read(f, Tag)
     bytecount = NBT.write_nbt_uncompressed(io, tag)
@@ -29,5 +31,7 @@ Aqua.test_all(NBT)
       tag[0x3] === (length(t) == 0 ? nothing : first(t)))
     @test (t = get_tags(tag, "Version", depth=1);
       tag["Version"] === (length(t) == 0 ? nothing : first(t)))
+
+    println(" (", round(1000(time() - lasttime); digits=2), "ms)")
   end
 end
