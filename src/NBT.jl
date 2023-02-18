@@ -191,6 +191,9 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
+julia> pwd()
+
+
 julia> tag = read("xd.litematic", Tag);
 
 julia> tag["Version"] === get_tags(tag, "Version"; depth=1)[1]
