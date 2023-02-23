@@ -191,9 +191,20 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` named `name`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("xd.litematic", Tag);
+julia> tag = Tag(0xa, "", [
+         Tag(0x3, "test_int", Int32(5)),
+         Tag(0x4, "test_long", Int64(5)),
+         Tag(0x3, "test_int_2", Int32(5))
+       ])
+(10) Tag[] (unnamed):
+▏ (3) Int32 test_int: 5
+▏ (4) Int64 test_long: 5
+▏ (3) Int32 test_int_2: 5
 
-julia> tag["Version"] === get_tags(tag, "Version"; depth=1)[1]
+julia> tag["test_int"]
+(3) Int32 test_int: 5
+
+julia> tag["test_int"] === get_tags(tag, "test_int"; depth=1)[1]
 true
 ```
 
@@ -222,10 +233,18 @@ Sets all `Tag`s in `tag` named `name` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("xd.litematic", Tag);
+julia> tag = Tag(0xa, "", [
+         Tag(0x3, "test_int", Int32(5)),
+         Tag(0x4, "test_long", Int64(5)),
+         Tag(0x3, "test_int_2", Int32(5))
+       ])
+(10) Tag[] (unnamed):
+▏ (3) Int32 test_int: 5
+▏ (4) Int64 test_long: 5
+▏ (3) Int32 test_int_2: 5
 
-julia> tag["Version"] = Tag(0x3, "Version", 69420)
-Int32 Version: 69420
+julia> tag["test_long"] = Tag(0x4, "test_long", 69420)
+(4) Int64 test_long: 69420
 ```
 
 See also [`get_tags`](@ref)
@@ -265,9 +284,23 @@ Returns a `Vector{Tag}` containing all `Tag`s in `tag` with id `id`, with an opt
 For convenience, [`getindex`](@ref) is implemented, and only gets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("xd.litematic", Tag);
+julia> tag = Tag(0xa, "", [
+         Tag(0x3, "test_int", Int32(5)),
+         Tag(0x4, "test_long", Int64(5)),
+         Tag(0x3, "test_int_2", Int32(5))
+       ])
+(10) Tag[] (unnamed):
+▏ (3) Int32 test_int: 5
+▏ (4) Int64 test_long: 5
+▏ (3) Int32 test_int_2: 5
 
-julia> tag[0x3] === get_tags(tag, 0x3; depth=1)[1]
+julia> tag[4]
+(4) Int64 test_long: 5
+
+julia> tag[3]
+(3) Int32 test_int: 5
+
+julia> tag[3] === get_tags(tag, 3; depth=1)[1]
 true
 ```
 
@@ -296,10 +329,18 @@ Sets all `Tag`s in `tag` with id `id` to `newtag`, with an optional search depth
 For convenience, [`setindex!`](@ref) is implemented, and only sets the first match on depth 1:
 
 ```jldoctest
-julia> tag = read("xd.litematic", Tag);
+julia> tag = Tag(0xa, "", [
+         Tag(0x3, "test_int", Int32(5)),
+         Tag(0x4, "test_long", Int64(5)),
+         Tag(0x3, "test_int_2", Int32(5))
+       ])
+(10) Tag[] (unnamed):
+▏ (3) Int32 test_int: 5
+▏ (4) Int64 test_long: 5
+▏ (3) Int32 test_int_2: 5
 
-julia> tag[0x3] = Tag(0x3, "EEEE", 69420)
-Int32 EEEE: 69420
+julia> tag[4] = Tag(0x4, "test_long", 69420)
+(4) Int64 test_long: 69420
 ```
 
 See also [`get_tags`](@ref)
