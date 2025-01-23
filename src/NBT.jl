@@ -1,6 +1,6 @@
 module NBT
 
-using GZip: gzdopen
+using CodecZlib
 export Tag
 export get_tags, set_tags
 
@@ -35,8 +35,10 @@ Base.sizeof(a::Array{Tag}) = length(a) == 0 ? 0 : sum(sizeof.(a))
 Base.sizeof(a::SubArray{Tag, <:Any, <:Array}) = length(a) == 0 ? 0 : sum(sizeof.(a))
 
 function Base.read(io::IO, ::Type{Tag})
-  gzio = gzdopen(io)
-  return _read_tag(gzio, read(gzio, UInt8))
+  stream = GzipDecompressorStream(io)
+  tag = _read_tag(stream, read(stream, UInt8))
+  close(stream)
+  return tag
 end
 
 """
@@ -47,9 +49,9 @@ Reads an nbt tag from an uncompressed `IO`. Not exported.
 read_nbt_uncompressed(io::IO, ::Type{Tag}) = _read_tag(io, read(io, UInt8))
 
 function Base.write(io::IO, tag::Tag)
-  gzio = gzdopen(io, "w")
-  bytes = _write_tag(gzio, tag)
-  close(gzio)
+  stream = GzipCompressorStream(io)
+  bytes = _write_tag(stream, tag)
+  close(stream)
   return bytes
 end
 
