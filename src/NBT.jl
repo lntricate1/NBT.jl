@@ -1,6 +1,6 @@
 module NBT
 
-using CodecZlib
+using CodecZlib, BufferedStreams
 export Tag
 export get_tags, set_tags
 
@@ -16,15 +16,17 @@ The following are all values of `T`, ordered by `id`, starting from 0x1, and the
 `[Byte,  Short, Int,   Long,  Float,   Double,  Byte_Array, String, List,  Compound, Int_Array, Long_Array]`
 
 # Properties
-- `id::UInt8`: The id of the tag. See [minecraft wiki](https://minecraft.fandom.com/wiki/NBT_format).
+- `id::UInt8`: The id of the tag. See [minecraft wiki](https://minecraft.wiki/NBT_format).
 - `name::String`: The name of the tag.
 - `data::T`: The data in the tag. Its type is dictated by `id`. Do not use the wrong id-T combination or everything will break!
 """
-struct Tag{T}
-  id::UInt8
+struct Tag{ID,T}
+  id::Val{ID}
   name::String
   data::T
 end
+
+Tag(id::UInt8, name::String, data::T) where T = Tag(Val(id), name, data)
 
 Base.isequal(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
 Base.:(==)(x::Tag, y::Tag) = x.id == y.id && x.name == y.name && x.data == y.data
@@ -35,8 +37,9 @@ Base.sizeof(a::Array{Tag}) = length(a) == 0 ? 0 : sum(sizeof.(a))
 Base.sizeof(a::SubArray{Tag, <:Any, <:Array}) = length(a) == 0 ? 0 : sum(sizeof.(a))
 
 function Base.read(io::IO, ::Type{Tag})
-  stream = GzipDecompressorStream(io)
-  tag = _read_tag(stream, read(stream, UInt8))
+  stream = BufferedInputStream(GzipDecompressorStream(io))
+  type = read(stream, UInt8)
+  tag = Tag(type, _read_name(stream), _read_tag(stream, Val(type)))
   close(stream)
   return tag
 end
@@ -46,11 +49,14 @@ end
 
 Reads an nbt tag from an uncompressed `IO`. Not exported.
 """
-read_nbt_uncompressed(io::IO, ::Type{Tag}) = _read_tag(io, read(io, UInt8))
+function read_nbt_uncompressed(io::IO, ::Type{Tag})
+  type = read(io, UInt8)
+  return Tag(type, _read_name(io), _read_tag(io, Val(type)))
+end
 
 function Base.write(io::IO, tag::Tag)
-  stream = GzipCompressorStream(io)
-  bytes = _write_tag(stream, tag)
+  stream = BufferedOutputStream(GzipCompressorStream(io))
+  bytes = _write_tag(stream, tag, true)
   close(stream)
   return bytes
 end
@@ -60,110 +66,85 @@ end
 
 Writes an nbt tag to an uncompressed `IO`. Not exported.
 """
-write_nbt_uncompressed(io::IO, tag::Tag) = _write_tag(io, tag)
+write_nbt_uncompressed(io::IO, tag::Tag) = _write_tag(io, tag, true)
 
-function _read_tag(io::IO, id::UInt8; skipname::Bool=false)::Tag
-  types = (Int8, Int16, Int32, Int64, Float32, Float64, Int8, nothing, nothing, nothing, Int32, Int64)
-  name = ""
-  if !skipname
-    namelength = ntoh(read(io, UInt16))
-    name = String(read(io, namelength))
+_read_name(io::IO) = String(read(io, ntoh(read(io, UInt16))))
+_read_tag(io::IO, ::Val{0x1}) = ntoh(read(io, UInt8))
+_read_tag(io::IO, ::Val{0x2}) = ntoh(read(io, Int16))
+_read_tag(io::IO, ::Val{0x3}) = ntoh(read(io, Int32))
+_read_tag(io::IO, ::Val{0x4}) = ntoh(read(io, Int64))
+_read_tag(io::IO, ::Val{0x5}) = ntoh(read(io, Float32))
+_read_tag(io::IO, ::Val{0x6}) = ntoh(read(io, Float64))
+_read_tag(io::IO, ::Val{0x7}) = [ntoh(read(io, Int8)) for _ in 1:ntoh(read(io, Int32))]
+_read_tag(io::IO, ::Val{0xb}) = [ntoh(read(io, Int32)) for _ in 1:ntoh(read(io, Int32))]
+_read_tag(io::IO, ::Val{0xc}) = [ntoh(read(io, Int64)) for _ in 1:ntoh(read(io, Int32))]
+_read_tag(io::IO, ::Val{0x8}) = String(read(io, ntoh(read(io, UInt16))))
+function _read_tag(io::IO, ::Val{0x9})
+  contentsid = read(io, UInt8)
+  size = ntoh(read(io, Int32))
+  contentsid == 0x0 && return Tag{0x01, UInt8}[]
+  tags = [Tag(contentsid, "", _read_tag(io, Val(contentsid))) for _ in 1:size]
+  return tags
+end
+function _read_tag(io::IO, ::Val{0xa})
+  tags = Tag[]
+  while (contentsid = read(io, UInt8)) != 0x0
+    push!(tags, Tag(contentsid, _read_name(io), _read_tag(io, Val(contentsid))))
   end
-
-  if id < 0x7 # Singletons
-    return Tag(id, name, ntoh(read(io, types[id])))
-
-  elseif id == 0x7 || id == 0xb || id == 0xc # Arrays
-    size = ntoh(read(io, Int32))
-    return Tag(id, name, [ntoh(read(io, types[id])) for _ ∈ 1:size])
-
-  elseif id == 0x8 # String
-    size = ntoh(read(io, UInt16))
-    return Tag(id, name, String(read(io, size)))
-
-  elseif id == 0x9 # Tag list
-    contentsid = read(io, UInt8)
-    size = ntoh(read(io, Int32))
-    if contentsid == 0x0 return Tag(0x9, name, Tag[]) end
-    return Tag(id, name, [_read_tag(io, contentsid; skipname=true) for _ ∈ 1:size])
-
-  elseif id == 0xa # Compound
-    tags = Tag[]
-    while true
-      contentsid = read(io, UInt8)
-      if contentsid == 0x0 break end
-      push!(tags, _read_tag(io, contentsid))
-    end
-    return Tag(id, name, tags)
-
-  else throw(error("invalid tag id ($id); file may be corrupt"))
-  end
+  return tags
 end
 
-# Only needed while https://github.com/JuliaIO/GZip.jl/issues/93 is open
-function _write_fixed(io::IO, b...)
-  write(io, b...)
-  return sum(sizeof.(b))
+@inline function _write_name(io::IO, tag::Tag{ID, T}, should::Bool) where {ID, T}
+  return should ? write(io, ID, hton(Int16(sizeof(tag.name))), tag.name) : 0
 end
-
-function _write_tag(io::IO, tag::Tag; skipname::Bool=false)::Int
-  bytes_written = 0
-  if !skipname
-    namelength = hton(Int16(sizeof(tag.name)))
-    bytes_written += _write_fixed(io, tag.id, namelength, tag.name)
+_write_tag(io::IO, tag::Tag{0x1, UInt8}, name::Bool) =    (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x2, Int16}, name::Bool) =   (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x3, Int32}, name::Bool) =   (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x4, Int64}, name::Bool) =   (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x5, Float32}, name::Bool) = (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x6, Float64}, name::Bool) = (_write_name(io, tag, name) + write(io, hton(tag.data)))
+_write_tag(io::IO, tag::Tag{0x7, Vector{Int8}}, name::Bool) =  (_write_name(io, tag, name) + write(io, hton(Int32(length(tag.data)))) + write(io, hton.(tag.data)))
+_write_tag(io::IO, tag::Tag{0xb, Vector{Int32}}, name::Bool) = (_write_name(io, tag, name) + write(io, hton(Int32(length(tag.data)))) + write(io, hton.(tag.data)))
+_write_tag(io::IO, tag::Tag{0xc, Vector{Int64}}, name::Bool) = (_write_name(io, tag, name) + write(io, hton(Int32(length(tag.data)))) + write(io, hton.(tag.data)))
+_write_tag(io::IO, tag::Tag{0x8, String}, name::Bool) = _write_name(io, tag, name) + write(io, hton(UInt16(sizeof(tag.data)))) + write(io, tag.data)
+function _write_tag(io::IO, tag::Tag{0x9, Vector{Tag{ID, T}}}, name::Bool) where {ID, T}
+  bytes_written = _write_name(io, tag, name)
+  bytes_written += write(io, length(tag.data) > 0 ? ID : 0x0)
+  bytes_written += write(io, hton(Int32(length(tag.data))))
+  for t in tag.data
+    bytes_written += _write_tag(io, t, false)
   end
-
-  if tag.id < 0x7 # Singletons
-    bytes_written += _write_fixed(io, hton(tag.data))
-
-  elseif tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc # Arrays
-    bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
-    bytes_written += _write_fixed(io, hton.(tag.data))
-
-  elseif tag.id == 0x8 # String
-    bytes_written += write(io, hton(UInt16(sizeof(tag.data)))) # Length
-    bytes_written += write(io, tag.data)
-
-  elseif tag.id == 0x9 # Tag list
-    bytes_written += _write_fixed(io, length(tag.data) > 0x0 ? first(tag.data).id : 0x0) # Type
-    bytes_written += write(io, hton(Int32(length(tag.data)))) # Length
-    for t ∈ tag.data
-      bytes_written += _write_tag(io, t; skipname = true)
-    end
-
-  elseif tag.id == 0xa # Compound
-    for t ∈ tag.data
-      bytes_written += _write_tag(io, t)
-    end
-    bytes_written += _write_fixed(io, 0x0)
-
-  else
-    throw(error("invalid tag id ($(tag.id)); tags may be corrupt"))
-  end
-
   return bytes_written
 end
+function _write_tag(io::IO, tag::Tag{0xa, Vector{Tag}}, name::Bool)
+  bytes_written = _write_name(io, tag, name)
+  for t in tag.data
+    bytes_written += _write_tag(io, t, true)
+  end
+  return bytes_written + write(io, 0x0)
+end
+_write_tag(::IO, ::Tag{ID, T}, ::Bool) where {ID, T} = throw(error("invalid tag id ($(ID)); tags may be corrupt"))
 
 function Base.show(io::IO, ::MIME"text/plain", tag::Tag)
   _show(io, tag)
 end
 
-function Base.show(io::IO, tag::Tag)
+function Base.show(io::IO, tag::Tag{ID, T}) where {ID, T}
   print(io, "Tag{",
-    ("Byte", "Int16", "Int32", "Int64", "Float32", "Float64", "Byte[]", "String", "Tag[]", "Tag[]", "Int32[]", "Int64[]")[tag.id],
+    ("Byte", "Int16", "Int32", "Int64", "Float32", "Float64", "Byte[]", "String", "Tag[]", "Tag[]", "Int32[]", "Int64[]")[ID],
     "} \"", tag.name, '"')
 end
 
-function _show(io::IO, tag::Tag; indent::String="")
-  print(io, indent, "(", tag.id, ") ",
-    ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[tag.id],
+function _show(io::IO, tag::Tag{ID, T}; indent::String="") where {ID, T}
+  print(io, indent, "(", ID, ") ",
+    ("Byte ", "Int16 ", "Int32 ", "Int64 ", "Float32 ", "Float64 ", "Byte[] ", "String ", "Tag[] ", "Tag[] ", "Int32[] ", "Int64[] ")[ID],
     (tag.name == "" ? "(unnamed)" : tag.name), ":")
 
-  if tag.id < 0x7 || tag.id == 0x8
+  if ID < 0x7 || ID == 0x8
     print(io, " ", string(tag.data))
 
   else
-    if tag.id == 0x7 || tag.id == 0xb || tag.id == 0xc
+    if ID == 0x7 || ID == 0xb || ID == 0xc
       for i ∈ eachindex(tag.data)
         print(io, "\n", indent, "▏ ", string(tag.data[i]))
         if i > 10
@@ -172,7 +153,7 @@ function _show(io::IO, tag::Tag; indent::String="")
         end
       end
 
-    elseif tag.id == 0x9 || tag.id == 0xa
+    elseif ID == 0x9 || ID == 0xa
       for i ∈ eachindex(tag.data)
         println(io)
         _show(io, tag.data[i]; indent=indent * "▏ ")
@@ -372,6 +353,122 @@ function Base.setindex!(tag::Tag, newtag::Tag, id::Integer)
     if tag.data[i].id == id return tag.data[i] = newtag end
   end
   return newtag
+end
+
+_skip1(io::IO) = skip(io, 1)
+_skip2(io::IO) = skip(io, 2)
+_skip3(io::IO) = skip(io, 4)
+_skip4(io::IO) = skip(io, 8)
+_skip5(io::IO) = skip(io, 4)
+_skip6(io::IO) = skip(io, 8)
+_skip7(io::IO) = skip(io, ntoh(read(io, Int32)))
+# Multiplying s allocates for some reason, so we do for loop instead
+_skipb(io::IO) = (s = ntoh(read(io, Int32)); for _ in 1:4 skip(io, s) end)
+_skipc(io::IO) = (s = ntoh(read(io, Int32)); for _ in 1:8 skip(io, s) end)
+_skip8(io::IO) = skip(io, ntoh(read(io, UInt16)))
+const _skipsize = (1, 2, 4, 8, 4, 8)
+function _skip9(io::IO)
+  contentsid = read(io, UInt8)
+  size = ntoh(read(io, Int32))
+  if contentsid == 0x0
+    return
+  elseif contentsid <= 0x6
+    skip(io, _skipsize[contentsid] * size)
+  else
+    for _ in 1:size
+      @inbounds _dict[contentsid](io)
+    end
+  end
+end
+function _skipa(io::IO)
+  while (contentsid = read(io, UInt8)) != 0x0
+    namesize = ntoh(read(io, UInt16))
+    skip(io, namesize)
+    @inbounds _dict[contentsid](io)
+  end
+end
+
+const _dict = Dict(0x1 => _skip1, 0x2 => _skip2, 0x3 => _skip3, 0x4 => _skip4, 0x5 => _skip5, 0x6 => _skip6, 0x7 => _skip7, 0x8 => _skip8, 0x9 => _skip9, 0xa => _skipa, 0xb => _skipb, 0xc => _skipc)
+
+_skip(io::IO, ::Val{0x1}) = skip(io, 1)
+_skip(io::IO, ::Val{0x2}) = skip(io, 2)
+_skip(io::IO, ::Val{0x3}) = skip(io, 4)
+_skip(io::IO, ::Val{0x4}) = skip(io, 8)
+_skip(io::IO, ::Val{0x5}) = skip(io, 4)
+_skip(io::IO, ::Val{0x6}) = skip(io, 8)
+_skip(io::IO, ::Val{0x7}) = skip(io, ntoh(read(io, Int32)))
+# Multiplying s allocates for some reason, so we do for loop instead
+_skip(io::IO, ::Val{0xb}) = (s = ntoh(read(io, Int32)); for _ in 1:4 skip(io, s) end)
+_skip(io::IO, ::Val{0xc}) = (s = ntoh(read(io, Int32)); for _ in 1:8 skip(io, s) end)
+_skip(io::IO, ::Val{0x8}) = skip(io, ntoh(read(io, UInt16)))
+const _skipsize = (1, 2, 4, 8, 4, 8)
+function _skip(io::IO, ::Val{0x9})
+  contentsid = read(io, UInt8)
+  size = ntoh(read(io, Int32))
+  if contentsid == 0x0
+    return
+  elseif contentsid <= 0x6
+    skip(io, _skipsize[contentsid] * size)
+  else
+    for _ in 1:size
+      _skip(io, Val(contentsid))
+    end
+  end
+end
+function _skip(io::IO, ::Val{0xa})
+  while (contentsid = read(io, UInt8)) != 0x0
+    namesize = ntoh(read(io, UInt16))
+    skip(io, namesize)
+    _skip(io, Val(contentsid))
+  end
+end
+
+function _read_tag(filename::String, dict::Dict{String, Pair{Symbol, Function}})
+  io = open(filename)
+  stream = BufferedInputStream(GzipDecompressorStream(io))
+  read(stream, UInt8) != 0xa && throw(error("Sussy root tag!! sussy!!!!"))
+  namesize = ntoh(read(stream, UInt16))
+  skip(stream, namesize)
+  out = _read_tag(stream, Val(0xa), dict)
+  close(io)
+  return out
+end
+
+function _read_tag(io::IO, ::Val{0xa}, dict::Dict{String, Pair{Symbol, Function}})
+  acc = NamedTuple()
+  while (type = read(io, UInt8)) != 0x0
+    name = String(read(io, ntoh(read(io, UInt16))))
+    if haskey(dict, name)
+      i, f = dict[name]
+      data = f(io, Val(type))
+      acc = (; acc..., i => data)
+    else
+      _skip(io, Val(type))
+    end
+  end
+  return acc
+end
+
+function _read_tag(io::IO, ::Val{0xa}, f::Function, ::Type{T}) where T
+  acc = T[]
+  while (type = read(io, UInt8)) != 0x0
+    name = String(read(io, ntoh(read(io, UInt16))))
+    data = f(io, Val(type), name)
+    push!(acc, data)
+  end
+  return acc
+end
+
+function _read_tag(io::IO, ::Val{0x9}, f::Function, ::Type{T}) where T
+  type = read(io, UInt8)
+  size = ntoh(read(io, Int32))
+  V = Val(type)
+  # return [f(io, V) for _ in 1:size]
+  acc = Vector{T}(undef, size)
+  for i in 1:size
+    acc[i] = f(io, V)
+  end
+  return acc
 end
 
 end
