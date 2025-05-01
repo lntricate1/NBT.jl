@@ -17,6 +17,7 @@ _id(::T) where T<:AbstractDict{String} = 0xa; _id(::Type{T}) where T<:AbstractDi
 
 _id(::Vector{Int32}) = 0xb;      _id(::Type{Vector{Int32}}) = 0xb
 _id(::Vector{Int64}) = 0xc;      _id(::Type{Vector{Int64}}) = 0xc
+_id(::Nothing) = 0xa
 
 """
     write_tag(io, data)
@@ -57,6 +58,9 @@ function write_tag(io::IO, data::AbstractDict{String, T}) where T
   end
   return bytes_written + Base.write(io, 0x0)
 end
+function write_tag(io::IO, ::Nothing)
+  return Base.write(io, 0x0)
+end
 
 _read_name(io::IO) = String(Base.read(io, ntoh(Base.read(io, UInt16))))
 _read_tag1(io::IO) = Base.read(io, UInt8)
@@ -78,13 +82,24 @@ function _read_tag9(io::IO)
 end
 function _read_taga(io::IO)
   # tags = Pair{String, Any}[]
-  tags = LittleDict(String[], Any[])
+  # tags = LittleDict(String[], Any[])
+  names = String[]
+  data = Any[]
+  # names = ()
+  # data = ()
   while (contentsid = Base.read(io, UInt8)) != 0x0
-    push!(tags, _read_name(io) => _dict_read[contentsid](io))
+    # names = (names..., _read_name(io))
+    # data = (data..., _dict_read[contentsid](io))
+    push!(names, _read_name(io))
+    push!(data, _dict_read[contentsid](io))
+    # push!(tags, _read_name(io) => _dict_read[contentsid](io))
   end
   # return TagCompound(tags)
   # return freeze(tags)
-  return isempty(tags) ? tags : freeze(tags)
+  # return isempty(tags) ? tags : freeze(tags)
+  # return isempty(names) ? nothing : LittleDict(names, [data...])
+  return isempty(names) ? nothing : LittleDict((names...,), (data...,))
+  # return isempty(names) ? nothing : LittleDict(names, data)
 end
 
 # This is significantly faster than dispatch for reading because the types are not known until the data is read

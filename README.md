@@ -9,20 +9,20 @@ NBT.jl is a Julia package for reading and writing Minecraft .nbt files.
 
 ## NBT object - Julia object equivalence
 
-| Byte | NBT object | Julia object produced| Julia objects accepted                                                         |
-| ---- | ---------- | ---------------------| ------------------------------------------------------------------------------ |
-| `01` | Byte       | `UInt8`              | `UInt8`                                                                        |
-| `02` | Short      | `Int16`              | `Int16`                                                                        |
-| `03` | Int        | `Int32`              | `Int32`                                                                        |
-| `04` | Long       | `Int64`              | `Int64`                                                                        |
-| `05` | Float      | `Float32`            | `Float32`                                                                      |
-| `06` | Double     | `Float64`            | `Float64`                                                                      |
-| `07` | Byte Array | `Vector{Int8}`       | `Vector{Int8}`                                                                 |
-| `08` | String     | `String`             | `String`                                                                       |
+| Byte | NBT object | Julia object produced| Julia objects accepted |
+| ---- | ---------- | ---------------------| ---------------------- |
+| `01` | Byte       | `UInt8`              | `UInt8`                |
+| `02` | Short      | `Int16`              | `Int16`                |
+| `03` | Int        | `Int32`              | `Int32`                |
+| `04` | Long       | `Int64`              | `Int64`                |
+| `05` | Float      | `Float32`            | `Float32`              |
+| `06` | Double     | `Float64`            | `Float64`              |
+| `07` | Byte Array | `Vector{Int8}`       | `Vector{Int8}`         |
+| `08` | String     | `String`             | `String`               |
 | `09` | List       | `Vector`             | `Vector` (or `NBT.TagList` if you want a vector of 07, 0b, 0c for some reason) |
-| `0a` | Compound   | `LittleDict{String}` | `AbstractDict{String, Any}`                                                    |
-| `0b` | Int Array  | `Vector{Int32}`      | `Vector{Int32}`                                                                |
-| `0c` | Long Array | `Vector{Int64}`      | `Vector{Int64}`                                                                |
+| `0a` | Compound   | `LittleDict{String}` or `Nothing` if empty | `AbstractDict{String, Any}` or `Nothing` if empty |
+| `0b` | Int Array  | `Vector{Int32}`      | `Vector{Int32}`        |
+| `0c` | Long Array | `Vector{Int64}`      | `Vector{Int64}`        |
 
 ## Examples
 ```julia
