@@ -62,3 +62,11 @@ end
 function Base.setindex!(tag::TagList{T}, newtag, i::Integer) where T
   return tag.data[i] = newtag
 end
+
+function Base.iterate(tag::TagList{T}) where T
+  return iterate(tag.data)
+end
+
+function Base.iterate(tag::TagList{T}, state) where T
+  return iterate(tag.data, state)
+end

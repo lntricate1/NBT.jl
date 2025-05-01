@@ -74,7 +74,7 @@ function _read_tag9(io::IO)
   size = ntoh(Base.read(io, Int32))
   contentsid == 0x0 && return TagList(Int8[])
   tags = [_dict_read[contentsid](io) for _ in 1:size]
-  return TagList(tags)
+  return tags
 end
 function _read_taga(io::IO)
   # tags = Pair{String, Any}[]
