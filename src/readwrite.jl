@@ -84,7 +84,7 @@ function _read_taga(io::IO)
   end
   # return TagCompound(tags)
   # return freeze(tags)
-  return tags
+  return isempty(tags) ? tags : freeze(tags)
 end
 
 # This is significantly faster than dispatch for reading because the types are not known until the data is read
