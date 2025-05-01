@@ -98,8 +98,12 @@ function _read_taga(io::IO)
   # return freeze(tags)
   # return isempty(tags) ? tags : freeze(tags)
   # return isempty(names) ? nothing : LittleDict(names, [data...])
-  return isempty(names) ? nothing : LittleDict((names...,), (data...,))
+  # return isempty(names) ? LittleDict(String[], Any[]) : LittleDict(names, [data...])
+  return LittleDict(names, data)
+  # return isempty(names) ? nothing : LittleDict((names...,), (data...,))
   # return isempty(names) ? nothing : LittleDict(names, data)
+  # return tags
+  # return isempty(tags) ? tags : LittleDict(names, [data...])
 end
 
 # This is significantly faster than dispatch for reading because the types are not known until the data is read
