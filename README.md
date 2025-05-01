@@ -5,82 +5,63 @@
 [![Build Status](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/lntricate1/NBT.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/lntricate1/NBT.jl)
 
-NBT.jl is a Julia package for reading and writing Minecraft .nbt files, including .litematic files.
+NBT.jl is a Julia package for reading and writing Minecraft .nbt files.
 
-## Available Methods
+## NBT object - Julia object equivalence
 
-### Base
-  - `Base.read(::IO, ::Type{Tag}) -> Tag`
-  - `Base.write(::IO, ::Tag) -> Int`
-  - `Base.isequal(::Tag, ::Tag) -> Bool`
-  - `Base.==(::Tag, ::Tag) -> Bool`
-  - `Base.hash(::Tag, ::UInt) -> UInt`
-  - `Base.sizeof(::Tag) -> Int`
-  - `Base.show(::IO, ::MIME, ::Tag)`
-  - `Base.getindex(::Tag, ::String) -> Union{Tag, Nothing}`
-  - `Base.getindex(::Tag, ::Integer) -> Union{Tag, Nothing}`
-  - `Base.setindex(::Tag, ::Tag, ::String) -> ::Tag`
-  - `Base.setindex(::Tag, ::Tag, ::Integer) -> ::Tag`
-
-### Exported
-  - `get_tags(::Tag, ::String; depth=10) -> Vector{Tag}`
-  - `get_tags(::Tag, ::Integer; depth=10) -> Vector{Tag}`
-  - `set_tags(::Tag, ::String, ::Tag; depth=10) -> Tag`
-  - `set_tags(::Tag, ::Integer, ::Tag; depth=10) -> Tag`
-
-### Not exported
-  - `read_nbt_uncompressed(::IO, ::Type{Tag}) -> Tag`
-  - `write_nbt_uncompressed(::IO, ::Tag) -> Int`
+| Byte | NBT object | Julia object produced| Julia objects accepted                                                         |
+| ---- | ---------- | ---------------------| ------------------------------------------------------------------------------ |
+| `01` | Byte       | `UInt8`              | `UInt8`                                                                        |
+| `02` | Short      | `Int16`              | `Int16`                                                                        |
+| `03` | Int        | `Int32`              | `Int32`                                                                        |
+| `04` | Long       | `Int64`              | `Int64`                                                                        |
+| `05` | Float      | `Float32`            | `Float32`                                                                      |
+| `06` | Double     | `Float64`            | `Float64`                                                                      |
+| `07` | Byte Array | `Vector{Int8}`       | `Vector{Int8}`                                                                 |
+| `08` | String     | `String`             | `String`                                                                       |
+| `09` | List       | `Vector`             | `Vector` (or `NBT.TagList` if you want a vector of 07, 0b, 0c for some reason) |
+| `0a` | Compound   | `LittleDict{String}` | `AbstractDict{String, Any}`                                                    |
+| `0b` | Int Array  | `Vector{Int32}`      | `Vector{Int32}`                                                                |
+| `0c` | Long Array | `Vector{Int64}`      | `Vector{Int64}`                                                                |
 
 ## Examples
 ```julia
-julia> using NBT
+using NBT
 
-julia> t = read("/home/intricate/1.16.5/saves/cmp3/level.dat", Tag) # Read a Tag from NBT file
-(10) Tag[] (unnamed):
-▏ (10) Tag[] Data:
-▏ ▏ (3) Int32 WanderingTraderSpawnChance: 75
-▏ ▏ (6) Float64 BorderCenterZ: 0.0
-▏ ▏ (1) Byte Difficulty: 3
-▏ ▏ (4) Int64 BorderSizeLerpTime: 0
-▏ ▏ (1) Byte raining: 0
-▏ ▏ (4) Int64 Time: 1155557106
-▏ ▏ (3) Int32 GameType: 1
-▏ ▏ (9) Tag[] ServerBrands:
-▏ ▏ ▏ (8) String (unnamed): fabric
-▏ ▏ (6) Float64 BorderCenterX: 0.0
-▏ ▏ (6) Float64 BorderDamagePerBlock: 26.0
-▏ ▏ (6) Float64 BorderWarningBlocks: 5.0
-▏ ▏ ...
+# NBT.read and NBT.write are the main read and write methods
+T = NBT.read("poop.litematic")
+NBT.write("poop_copy.litematic", T)
 
-julia> get_tags(t, "id") # Get all Tags named "id"
-9-element Vector{Tag}:
- (8) String id: minecraft:wooden_axe
- (8) String id: minecraft:gray_concrete
- (8) String id: minecraft:light_blue_concrete
- (8) String id: minecraft:light_blue_stained_glass
- (8) String id: minecraft:pink_concrete
- (8) String id: minecraft:observer
- (8) String id: minecraft:note_block
- (8) String id: minecraft:repeater
- (8) String id: minecraft:arrow
+# More advanced usage: There are also methods for writing directly
+# without needing to turn the data into a specific Julia object first
+# this runs faster and uses less memory
+# here is some example code from Litematica.jl that uses this
+function Base.write(io::IO, litematic::Litematic)
+  s, bytes = begin_nbt_file(io)
+  # write_tag(stream, "name" => data) works within Compound tags
+  bytes += write_tag(s, "MinecraftDataVersion" => litematic.data_version)
+  bytes += write_tag(s, "Version" => Int32(5))
+  bytes += write_tag(s, "Metadata" => litematic.metadata)
+  # begin_compound(stream, "name") begins a nested Compound tag
+  bytes += begin_compound(s, "Regions")
 
-julia> t["Data"]["Time"] # Get the Tag root/Data/Time
-(4) Int64 Time: 1155557106
+  for region in litematic.regions
+    bytes += begin_compound(s, region.name)
+    bytes += write_tag(s, "BlockStates" => CompressedPalettedContainer(_permutedims(region.blocks, (1, 3, 2)), 2).data)
+    bytes += write_tag(s, "PendingBlockTicks" => TagList())
+    bytes += write_tag(s, "Position" => _writetriple(region.pos))
+    bytes += write_tag(s, "BlockStatePalette" => TagList(_Tag.(region.blocks.pool)))
+    bytes += write_tag(s, "Size" => _writetriple(Int32.(size(region.blocks))))
+    bytes += write_tag(s, "PendingFluidTicks" => TagList())
+    bytes += write_tag(s, "TileEntities" => TagList(TagCompound{Any}[t for t in region.tile_entities if t !== nothing]))
+    bytes += write_tag(s, "Entities" => TagList())
+    bytes += end_compound(s)
+  end
 
-julia> get_tags(t, 2) # Get all Tags with id 2 (Int16)
-5-element Vector{Tag}:
- (2) Int16 SleepTimer: 0
- (2) Int16 DeathTime: 0
- (2) Int16 Air: 300
- (2) Int16 Fire: 0
- (2) Int16 HurtTime: 0
-
-julia> t["Data"][1] # Get the first tag with id 1 (Byte) inside root/Data
-(1) Byte Difficulty: 3
-
-julia> write("./nbtfile.dat", t) # Write tag into NBT file
-5653
+  bytes += end_compound(s)
+  bytes += end_nbt_file(s)
+  return bytes
+end
 ```
 
 [build-img]: https://github.com/lntricate1/NBT.jl/actions/workflows/ci_unit.yml/badge.svg

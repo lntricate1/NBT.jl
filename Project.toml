@@ -1,8 +1,12 @@
 name = "NBT"
 uuid = "b6fc1ac1-9d30-4df3-aa0b-dd666eb91533"
 authors = ["Ellie <intricatebread@gmail.com> and contributors"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 BufferedStreams = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+
+[compat]
+OrderedCollections = "1.8.0"
