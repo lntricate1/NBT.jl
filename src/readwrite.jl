@@ -77,7 +77,7 @@ function _read_tag9(io::IO)
   contentsid = Base.read(io, UInt8)
   size = ntoh(Base.read(io, Int32))
   contentsid == 0x0 && return TagList(Int8[])
-  tags = [_dict_read[contentsid](io) for _ in 1:size]
+  tags = [_lut_read[contentsid](io) for _ in 1:size]
   return tags
 end
 function _read_taga(io::IO)
@@ -91,7 +91,7 @@ function _read_taga(io::IO)
     # names = (names..., _read_name(io))
     # data = (data..., _dict_read[contentsid](io))
     push!(names, _read_name(io))
-    push!(data, _dict_read[contentsid](io))
+    push!(data, _lut_read[contentsid](io))
     # push!(tags, _read_name(io) => _dict_read[contentsid](io))
   end
   # return TagCompound(tags)
@@ -107,19 +107,20 @@ function _read_taga(io::IO)
 end
 
 # This is significantly faster than dispatch for reading because the types are not known until the data is read
-const _dict_read = Dict(
-0x1 => _read_tag1,
-0x2 => _read_tag2,
-0x3 => _read_tag3,
-0x4 => _read_tag4,
-0x5 => _read_tag5,
-0x6 => _read_tag6,
-0x7 => _read_tag7,
-0x8 => _read_tag8,
-0x9 => _read_tag9,
-0xa => _read_taga,
-0xb => _read_tagb,
-0xc => _read_tagc)
+# An array is faster than a Dict for this small size
+const _lut_read = [
+_read_tag1,
+_read_tag2,
+_read_tag3,
+_read_tag4,
+_read_tag5,
+_read_tag6,
+_read_tag7,
+_read_tag8,
+_read_tag9,
+_read_taga,
+_read_tagb,
+_read_tagc]
 
 # const _type_to_id_dict = Dict(
 #   UInt8 => 0x1,
