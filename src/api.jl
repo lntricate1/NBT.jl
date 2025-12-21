@@ -15,7 +15,7 @@ Read NBT data from an IO and return the data as Julia objects.
 function read(io::IO)
   stream = BufferedInputStream(GzipDecompressorStream(io))
   type = Base.read(stream, UInt8)
-  tag = _read_name(stream) => _dict_read[type](stream)
+  tag = _read_name(stream) => _lut_read[type](stream)
   close(stream)
   return tag
 end
@@ -48,7 +48,7 @@ Reads an nbt tag from an uncompressed `IO`. Not exported.
 """
 function read_uncompressed(io::IO)
   type = Base.read(io, UInt8)
-  return _read_name(io) => _dict_read[type](io)
+  return _read_name(io) => _lut_read[type](io)
 end
 
 """
