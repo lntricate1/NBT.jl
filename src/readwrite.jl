@@ -1,7 +1,6 @@
 using OrderedCollections
-include("structs.jl")
 
-_n(name::String) = hton(Int16(sizeof(name)))
+write_name_length(name::String) = hton(Int16(sizeof(name)))
 _id(::UInt8) = 0x1;              _id(::Type{UInt8}) = 0x1
 _id(::Int16) = 0x2;              _id(::Type{Int16}) = 0x2
 _id(::Int32) = 0x3;              _id(::Type{Int32}) = 0x3
@@ -10,8 +9,6 @@ _id(::Float32) = 0x5;            _id(::Type{Float32}) = 0x5
 _id(::Float64) = 0x6;            _id(::Type{Float64}) = 0x6
 _id(::Vector{Int8}) = 0x7;       _id(::Type{Vector{Int8}}) = 0x7
 _id(::String) = 0x8;             _id(::Type{String}) = 0x8
-_id(::TagList{T}) where T = 0x9; _id(::Type{TagList{T}}) where T = 0x9
-# _id(::TagCompound{T}) where T = 0xa
 _id(::Vector{T}) where T = 0x9;  _id(::Type{Vector{T}}) where T = 0x9
 _id(::T) where T<:AbstractDict{String} = 0xa; _id(::Type{T}) where T<:AbstractDict{String} = 0xa
 
@@ -34,16 +31,8 @@ write_tag(io::IO, data::Vector{Int8}) =  Base.write(io, hton(Int32(length(data))
 write_tag(io::IO, data::Vector{Int32}) = Base.write(io, hton(Int32(length(data))), hton.(data))
 write_tag(io::IO, data::Vector{Int64}) = Base.write(io, hton(Int32(length(data))), hton.(data))
 write_tag(io::IO, data::String) = Base.write(io, hton(UInt16(sizeof(data))), data)
-function write_tag(io::IO, data::TagList{T}) where T
-  id = length(data) > 0 ? _id(data[1]) : 0x0
-  bytes_written = Base.write(io, id, hton(Int32(length(data.data))))
-  for t in data.data
-    bytes_written += write_tag(io, t)
-  end
-  return bytes_written
-end
 function write_tag(io::IO, data::Vector{T}) where T
-  id = length(data) > 0 ? _id(data[1]) : 0x0
+  id = T != Any ? _id(T) : length(data) > 0 ? _id(data[1]) : 0x0
   bytes_written = Base.write(io, id, hton(Int32(length(data))))
   for t in data
     bytes_written += write_tag(io, t)
@@ -53,7 +42,7 @@ end
 function write_tag(io::IO, data::AbstractDict{String, T}) where T
   bytes_written = 0
   for t in data
-    bytes_written += Base.write(io, _id(t.second), _n(t.first), t.first)
+    bytes_written += Base.write(io, _id(t.second), write_name_length(t.first), t.first)
     bytes_written += write_tag(io, t.second)
   end
   return bytes_written + Base.write(io, 0x0)
@@ -76,8 +65,8 @@ _read_tag8(io::IO) = String(Base.read(io, ntoh(Base.read(io, UInt16))))
 function _read_tag9(io::IO)
   contentsid = Base.read(io, UInt8)
   size = ntoh(Base.read(io, Int32))
-  contentsid == 0x0 && return TagList(Int8[])
-  tags = [_lut_read[contentsid](io) for _ in 1:size]
+  contentsid == 0x0 && return Int8[]
+  tags = _lut_type[contentsid][_lut_read[contentsid](io) for _ in 1:size]
   return tags
 end
 function _read_taga(io::IO)
@@ -122,19 +111,16 @@ _read_taga,
 _read_tagb,
 _read_tagc]
 
-# const _type_to_id_dict = Dict(
-#   UInt8 => 0x1,
-#   Int16 => 0x2,
-#   Int32 => 0x3,
-#   Int64 => 0x4,
-#   Float32 => 0x5,
-#   Float64 => 0x6,
-#   Vector{Int8} => 0x7,
-#   String => 0x8,
-#   # TagList => 0x9,
-#   # TagCompound => 0xa,
-#   LittleDict => 0x9,
-#   Vector => 0xa,
-#   Vector{Int32} => 0xb,
-#   Vector{Int64} => 0xc
-# )
+const _lut_type = [
+UInt8,
+Int16,
+Int32,
+Int64,
+Float32,
+Float64,
+Vector{Int8},
+String,
+Vector,
+LittleDict,
+Vector{Int32},
+Vector{Int64}]
