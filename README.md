@@ -19,8 +19,8 @@ NBT.jl is a Julia package for reading and writing Minecraft .nbt files.
 | `06` | Double     | `Float64`            | `Float64`              |
 | `07` | Byte Array | `Vector{Int8}`       | `Vector{Int8}`         |
 | `08` | String     | `String`             | `String`               |
-| `09` | List       | `Vector`             | `Vector` (or `NBT.TagList` if you want a vector of 07, 0b, 0c for some reason) |
-| `0a` | Compound   | `LittleDict{String}` or `Nothing` if empty | `AbstractDict{String, Any}` or `Nothing` if empty |
+| `09` | List       | `Vector{T}`          | `Vector{T}`            |
+| `0a` | Compound   | `LittleDict{String}` | `AbstractDict{String}` or `Nothing` if empty |
 | `0b` | Int Array  | `Vector{Int32}`      | `Vector{Int32}`        |
 | `0c` | Long Array | `Vector{Int64}`      | `Vector{Int64}`        |
 
@@ -63,6 +63,10 @@ function Base.write(io::IO, litematic::Litematic)
   return bytes
 end
 ```
+
+## Edge cases
+- When reading an empty NBT list with element type `0`, NBT.jl produces `Any[]`. Similarly writing `Any[]` will produce an empty NBT list with element type `0`.
+- When reading an NBT list with element type `03` or `04`, NBT.jl produces `Int32[]` and `Int64[]` respectively. Trying to write this back into an NBT file will produce a tag of type `0b` and `0c` respectively. Note that this doesn't affect lists of element type `01` since those produce `UInt8[]`, which is distinct from the `Int8[]` produced by tags of type `07`.
 
 [build-img]: https://github.com/lntricate1/NBT.jl/actions/workflows/ci_unit.yml/badge.svg
 [build-url]: https://github.com/lntricate1/NBT.jl/actions/workflows/ci_unit.yml

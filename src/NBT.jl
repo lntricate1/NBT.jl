@@ -41,9 +41,7 @@ Write NBT data to an IO and return the number of bytes written.
 """
 function write(io::IO, tag::Pair{String, LittleDict{String, T, A, B}}) where {T,A,B}
   stream = BufferedOutputStream(GzipCompressorStream(io))
-  t = tag
-  bytes = Base.write(stream, 0xa, hton(Int16(sizeof(t.first))), t.first)
-  bytes += write_tag(stream, t.second)
+  bytes = write_uncompressed(stream, tag)
   close(stream)
   return bytes
 end
@@ -63,8 +61,8 @@ end
 
 Writes an nbt tag to an uncompressed `IO`. Not exported.
 """
-function write_uncompressed(io::IO, tag::LittleDict{String, T, A, B}) where {T,A,B}
-  bytes = Base.write(io, 0xa, hton(Int16(sizeof(tag.first))), tag.first)
+function write_uncompressed(io::IO, tag::Pair{String, LittleDict{String, T, A, B}}) where {T,A,B}
+  bytes = Base.write(io, 0xa, write_name_length(tag.first), tag.first)
   return bytes + write_tag(io, tag.second)
 end
 
@@ -93,9 +91,7 @@ end
 Begin an NBT List tag with the specified length and element type and return the number of bytes written. Use only after [`begin_list`](@ref).
 """
 function begin_list(io::IO, length::Integer, ::Type{T}) where T
-  # id = length > 0 ? _type_to_id_dict[T] : 0x0
-  id = length > 0 ? _id(T) : 0x0
-  return Base.write(io, id, hton(Int32(length)))
+  return Base.write(io, _id(T), hton(Int32(length)))
 end
 
 """

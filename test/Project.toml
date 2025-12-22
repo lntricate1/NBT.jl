@@ -1,5 +1,0 @@
-[deps]
-Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
-GZip = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
-LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

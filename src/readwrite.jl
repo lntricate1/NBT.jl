@@ -1,20 +1,20 @@
 using OrderedCollections
 
 write_name_length(name::String) = hton(Int16(sizeof(name)))
-_id(::UInt8) = 0x1;              _id(::Type{UInt8}) = 0x1
-_id(::Int16) = 0x2;              _id(::Type{Int16}) = 0x2
-_id(::Int32) = 0x3;              _id(::Type{Int32}) = 0x3
-_id(::Int64) = 0x4;              _id(::Type{Int64}) = 0x4
-_id(::Float32) = 0x5;            _id(::Type{Float32}) = 0x5
-_id(::Float64) = 0x6;            _id(::Type{Float64}) = 0x6
-_id(::Vector{Int8}) = 0x7;       _id(::Type{Vector{Int8}}) = 0x7
-_id(::String) = 0x8;             _id(::Type{String}) = 0x8
-_id(::Vector{T}) where T = 0x9;  _id(::Type{Vector{T}}) where T = 0x9
-_id(::T) where T<:AbstractDict{String} = 0xa; _id(::Type{T}) where T<:AbstractDict{String} = 0xa
-
-_id(::Vector{Int32}) = 0xb;      _id(::Type{Vector{Int32}}) = 0xb
-_id(::Vector{Int64}) = 0xc;      _id(::Type{Vector{Int64}}) = 0xc
-_id(::Nothing) = 0xa
+_id(::UInt8) = 0x1;                _id(::Type{UInt8}) = 0x1
+_id(::Int16) = 0x2;                _id(::Type{Int16}) = 0x2
+_id(::Int32) = 0x3;                _id(::Type{Int32}) = 0x3
+_id(::Int64) = 0x4;                _id(::Type{Int64}) = 0x4
+_id(::Float32) = 0x5;              _id(::Type{Float32}) = 0x5
+_id(::Float64) = 0x6;              _id(::Type{Float64}) = 0x6
+_id(::Vector{Int8}) = 0x7;         _id(::Type{Vector{Int8}}) = 0x7
+_id(::String) = 0x8;               _id(::Type{String}) = 0x8
+_id(::Vector{T}) where T = 0x9;    _id(::Type{Vector{T}}) where T = 0x9
+_id(::AbstractDict{String}) = 0xa; _id(::Type{<:AbstractDict{String}}) = 0xa
+_id(::Vector{Int32}) = 0xb;        _id(::Type{Vector{Int32}}) = 0xb
+_id(::Vector{Int64}) = 0xc;        _id(::Type{Vector{Int64}}) = 0xc
+_id(::Type{Nothing}) = 0xa;        _id(::Type{Any}) = 0x0
+_id(x) = throw(DomainError(x, "invalid NBT data type. Options are UInt8, Int16, Int32, Int64, Float32, Float64, Vector, String, AbstractDict."))
 
 """
     write_tag(io, data)
@@ -32,24 +32,17 @@ write_tag(io::IO, data::Vector{Int32}) = Base.write(io, hton(Int32(length(data))
 write_tag(io::IO, data::Vector{Int64}) = Base.write(io, hton(Int32(length(data))), hton.(data))
 write_tag(io::IO, data::String) = Base.write(io, hton(UInt16(sizeof(data))), data)
 function write_tag(io::IO, data::Vector{T}) where T
-  id = T != Any ? _id(T) : length(data) > 0 ? _id(data[1]) : 0x0
-  bytes_written = Base.write(io, id, hton(Int32(length(data))))
-  for t in data
-    bytes_written += write_tag(io, t)
+  (T != Any || length(data) == 0) &&
+    return begin_list(io, length(data), T) + sum(write_tag(io, tag) for tag in data; init=0)
+
+  type = typeof(data[1])
+  for x in data
+    (x isa type) || throw(DomainError(data, "NBT vectors must be of a single type"))
   end
-  return bytes_written
+  return begin_list(io, length(data), type) + sum(write_tag(io, tag) for tag in data; init=0)
 end
-function write_tag(io::IO, data::AbstractDict{String, T}) where T
-  bytes_written = 0
-  for t in data
-    bytes_written += Base.write(io, _id(t.second), write_name_length(t.first), t.first)
-    bytes_written += write_tag(io, t.second)
-  end
-  return bytes_written + Base.write(io, 0x0)
-end
-function write_tag(io::IO, ::Nothing)
-  return Base.write(io, 0x0)
-end
+write_tag(io::IO, data::AbstractDict{String}) = sum(write_tag(io, tag) for tag in data; init=0) + Base.write(io, 0x0)
+write_tag(io::IO, ::Nothing) = Base.write(io, 0x0)
 
 _read_name(io::IO) = String(Base.read(io, ntoh(Base.read(io, UInt16))))
 _read_tag1(io::IO) = Base.read(io, UInt8)
@@ -65,7 +58,7 @@ _read_tag8(io::IO) = String(Base.read(io, ntoh(Base.read(io, UInt16))))
 function _read_tag9(io::IO)
   contentsid = Base.read(io, UInt8)
   size = ntoh(Base.read(io, Int32))
-  contentsid == 0x0 && return Int8[]
+  contentsid == 0x0 && return Any[]
   tags = _lut_type[contentsid][_lut_read[contentsid](io) for _ in 1:size]
   return tags
 end
@@ -121,6 +114,6 @@ Float64,
 Vector{Int8},
 String,
 Vector,
-LittleDict,
+LittleDict{String, Any},
 Vector{Int32},
 Vector{Int64}]
