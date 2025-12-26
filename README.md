@@ -3,7 +3,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://lntricate1.github.io/NBT.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://lntricate1.github.io/NBT.jl/dev/)
 [![Build Status](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lntricate1/NBT.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/lntricate1/NBT.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/lntricate1/NBT.jl)
+[![Coverage Status](https://coveralls.io/repos/github/lntricate1/NBT.jl/badge.svg?branch=main)](https://coveralls.io/github/lntricate1/NBT.jl?branch=main)
 
 NBT.jl is a Julia package for reading and writing Minecraft .nbt files.
 
