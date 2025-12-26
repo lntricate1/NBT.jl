@@ -5,7 +5,7 @@ using CodecZlib, BufferedStreams, OrderedCollections
 include("readwrite.jl")
 
 public read, write, read_uncompressed, write_uncompressed, pretty_print
-public write_tag, begin_list, begin_compound, end_compound, begin_nbt_file, end_nbt_file
+public write_tag, begin_list, end_list, begin_compound, end_compound, begin_nbt_file, end_nbt_file
 
 """
     read(filename)
@@ -28,18 +28,18 @@ function read(io::IO)
 end
 
 """
-    write(filename)
+    write(filename, pair::Pair{String, <:AbstractDict{String}})
 
 Write an NBT file and return the number of bytes written.
 """
-write(file::String, tag::Pair{String, LittleDict{String, T, A, B}}) where {T,A,B} = open(file; create=true, write=true) do io write(io, tag) end
+write(file::String, tag::Pair{String, <:AbstractDict{String}}) = open(io -> write(io, tag), file; create=true, write=true)
 
 """
-    write(io)
+    write(io, pair::Pair{String, <:AbstractDict{String}})
 
-Write NBT data to an IO and return the number of bytes written.
+Write an NBT file to an IO and return the number of bytes written.
 """
-function write(io::IO, tag::Pair{String, LittleDict{String, T, A, B}}) where {T,A,B}
+function write(io::IO, tag::Pair{String, <:AbstractDict{String}})
   stream = BufferedOutputStream(GzipCompressorStream(io))
   bytes = write_uncompressed(stream, tag)
   close(stream)
@@ -49,7 +49,7 @@ end
 """
     read_uncompressed(io, ::Type{Tag})
 
-Reads an nbt tag from an uncompressed `IO`. Not exported.
+Read an nbt tag from an uncompressed `IO`.
 """
 function read_uncompressed(io::IO)
   type = Base.read(io, UInt8)
@@ -57,14 +57,18 @@ function read_uncompressed(io::IO)
 end
 
 """
-    write_uncompressed(io, tag)
+    write_uncompressed(filename, pair::Pair{String, <:AbstractDict{String}})
 
-Writes an nbt tag to an uncompressed `IO`. Not exported.
+Write an NBT file to an uncompressed file and return the number of bytes written.
 """
-function write_uncompressed(io::IO, tag::Pair{String, LittleDict{String, T, A, B}}) where {T,A,B}
-  bytes = Base.write(io, 0xa, write_name_length(tag.first), tag.first)
-  return bytes + write_tag(io, tag.second)
-end
+write_uncompressed(filename::String, tag::Pair{String, <:AbstractDict{String}}) = open(io -> write_tag(io, tag), file; create=true, write=true)
+
+"""
+    write_uncompressed(io, pair::Pair{String, <:AbstractDict{String}})
+
+Write an NBT file to an uncompressed `IO` and return the number of bytes written.
+"""
+write_uncompressed(io::IO, tag::Pair{String, <:AbstractDict{String}}) = write_tag(io, tag)
 
 """
     write_tag(io, name => data)
@@ -93,6 +97,15 @@ Begin an NBT List tag with the specified length and element type and return the 
 function begin_list(io::IO, length::Integer, ::Type{T}) where T
   return Base.write(io, _id(T), hton(Int32(length)))
 end
+
+"""
+  end_list(io)
+
+End an NBT List tag and return the number of bytes written.
+
+*Note: This method just returns `0`, but is included for completeness and to allow for more readable code.*
+"""
+end_list(io::IO) = 0
 
 """
     begin_compound(io, name)
