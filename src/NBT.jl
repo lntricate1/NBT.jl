@@ -2,7 +2,8 @@ module NBT
 
 using CodecZlib, BufferedStreams, OrderedCollections
 
-include("readwrite.jl")
+# include("readwrite.jl")
+include("structs.jl")
 
 public read, write, read_uncompressed, write_uncompressed, pretty_print
 public write_tag, begin_list, end_list, begin_compound, end_compound, begin_nbt_file, end_nbt_file

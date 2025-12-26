@@ -1,5 +1,5 @@
-using StructUtils
-using Accessors
+# using StructUtils
+# using Accessors
 include("readwrite.jl")
 
 _skip_name(io::IO) = skip(io, ntoh(Base.read(io, UInt16)))
