@@ -4,7 +4,29 @@ CurrentModule = NBT
 
 # NBT.jl
 
-Documentation for [NBT](https://github.com/lntricate1/NBT.jl).
+[NBT.jl](https://github.com/lntricate1/NBT.jl) is a Julia package for reading and writing [Minecraft NBT files](https://minecraft.wiki/w/NBT_format#Binary_format). The main reading and writing methods convert the NBT file into corresponding Julia types and back.
+
+## NBT object - Julia object equivalence
+
+| Byte | NBT object | Julia object produced| Julia objects accepted                       |
+| ---- | ---------- | ---------------------| -------------------------------------------- |
+| `01` | Byte       | `UInt8`              | `UInt8`                                      |
+| `02` | Short      | `Int16`              | `Int16`                                      |
+| `03` | Int        | `Int32`              | `Int32`                                      |
+| `04` | Long       | `Int64`              | `Int64`                                      |
+| `05` | Float      | `Float32`            | `Float32`                                    |
+| `06` | Double     | `Float64`            | `Float64`                                    |
+| `07` | Byte Array | `Vector{Int8}`       | `Vector{Int8}`                               |
+| `08` | String     | `String`             | `String`                                     |
+| `09` | List       | `Vector{T}`          | `Vector{T}`                                  |
+| `0a` | Compound   | `LittleDict{String}` | `AbstractDict{String}` or `Nothing` if empty |
+| `0b` | Int Array  | `Vector{Int32}`      | `Vector{Int32}`                              |
+| `0c` | Long Array | `Vector{Int64}`      | `Vector{Int64}`                              |
+
+### Edge cases
+
+- When reading an empty NBT list with element type `0`, NBT.jl produces `Any[]`. Similarly writing `Any[]` will produce an empty NBT list with element type `0`.
+- When reading an NBT list with element type `03` or `04`, NBT.jl produces `Int32[]` and `Int64[]` respectively. Trying to write this back into an NBT file will produce a tag of type `0b` and `0c` respectively. Note that this doesn't affect lists of element type `01` since those produce `UInt8[]`, which is distinct from the `Int8[]` produced by tags of type `07`.
 
 ## Reading
 

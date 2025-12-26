@@ -1,7 +1,7 @@
 name = "NBT"
 uuid = "b6fc1ac1-9d30-4df3-aa0b-dd666eb91533"
 authors = ["Ellie <intricatebread@gmail.com> and contributors"]
-version = "0.3.0"
+version = "1.0.0"
 
 [deps]
 BufferedStreams = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
